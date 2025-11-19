@@ -1,135 +1,162 @@
 package chatpro;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.IOException;
-import java.io.PrintWriter;
+
+// ... (기존 import 유지) ...
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
+import javax.swing.*;
 
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import java.awt.GridLayout;
-
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-
-/**
- * A simple Swing-based client for the chat server. Graphically it is a frame with a text
- * field for entering messages and a textarea to see the whole dialog.
- *
- * The client follows the following Chat Protocol. When the server sends "SUBMITNAME" the
- * client replies with the desired screen name. The server will keep sending "SUBMITNAME"
- * requests as long as the client submits screen names that are already in use. When the
- * server sends a line beginning with "NAMEACCEPTED" the client is now allowed to start
- * sending the server arbitrary strings to be broadcast to all chatters connected to the
- * server. When the server sends a line beginning with "MESSAGE" then all characters
- * following this string should be displayed in its message area.
- */
 public class ChatClient {
 
     String serverAddress;
     Scanner in;
     PrintWriter out;
     
-    //채팅창 관련 ui
+    // 채팅창 관련 UI
     JFrame chatframe = new JFrame("Chatter");
-    JTextField textField = new JTextField(50);
+    JTextField textField = new JTextField(40); // 메시지 입력칸
     JTextArea messageArea = new JTextArea(16, 50);
-
-    /**
-     * Constructs the client by laying out the GUI and registering a listener with the
-     * textfield so that pressing Return in the listener sends the textfield contents
-     * to the server. Note however that the textfield is initially NOT editable, and
-     * only becomes editable AFTER the client receives the NAMEACCEPTED message from
-     * the server.
-     */
     
-    //로그인 창 관련 ui
-    JFrame loginFrame = new JFrame("login/register");
+    // ⭐️ 귓속말용 UI 추가
+    JTextField targetField = new JTextField(10); // 받는 사람 ID 입력칸
+    JLabel targetLabel = new JLabel("귓속말 대상(비우면 전체):");
+
+    // ... (로그인 UI 변수들은 기존과 동일) ...
+    JFrame loginFrame = new JFrame("Login");
     JTextField loginIdField = new JTextField(15);
     JPasswordField loginPwField = new JPasswordField(15);
-    JButton registerButton = new JButton("click here to register");
-    
-    
+    JButton registerButton = new JButton("Register");
+
     public ChatClient(String serverAddress) {
         this.serverAddress = serverAddress;
-        //채팅창 ui 설정,로그인 전에는 비활성화
         textField.setEditable(false);
         messageArea.setEditable(false);
-        chatframe.getContentPane().add(textField, BorderLayout.SOUTH);
+        
+        // ⭐️ 하단 패널 구성 (귓속말 대상 + 메시지 입력)
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        
+        JPanel targetPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        targetPanel.add(targetLabel);
+        targetPanel.add(targetField);
+        
+        bottomPanel.add(targetPanel, BorderLayout.WEST);
+        bottomPanel.add(textField, BorderLayout.CENTER);
+        
+        chatframe.getContentPane().add(bottomPanel, BorderLayout.SOUTH);
         chatframe.getContentPane().add(new JScrollPane(messageArea), BorderLayout.CENTER);
         chatframe.pack();
         chatframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
-        //로그인 창 ui 설정
         createLoginGUI();
         
-        // Send on enter then clear to prepare for next message
+        // 메시지 전송 리스너
         textField.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                out.println(textField.getText());
+                String msg = textField.getText();
+                String target = targetField.getText().trim();
+                
+                // ⭐️ 귓속말 대상이 적혀있으면 /w 명령어로 변환해서 전송
+                if (!target.isEmpty()) {
+                    out.println("/w " + target + " " + msg);
+                } else {
+                    out.println(msg);
+                }
                 textField.setText("");
             }
         });
     }
 
-    private void createLoginGUI() {
-        // ⭐️ 수정: loginFrame.setLayout(new FlowLayout()); 삭제
-        // JFrame의 기본 레이아웃(BorderLayout)을 사용합니다.
-        loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        
-        JPanel panel = new JPanel(new GridLayout(3,2));
-        
-        //아이디 입력
-        panel.add(new JLabel("Username:"));
-        panel.add(loginIdField);
-        
-        //비밀번호 입력
-        panel.add(new JLabel("password:"));
-        panel.add(loginPwField);
-        
-        //로그인 버튼
-        JButton loginButton = new JButton("Login");
-        panel.add(loginButton);
-        panel.add(new JLabel(""));// 빈공간
-        
-        // ⭐️ 수정: 패널을 프레임의 중앙(CENTER)에 추가합니다.
-        // (NORTH로 해도 괜찮습니다.)
-        loginFrame.getContentPane().add(panel, BorderLayout.CENTER);
-        
-        // ⭐️ 수정: 선언만 되고 추가되지 않았던 registerButton을 프레임 하단(SOUTH)에 추가합니다.
-        loginFrame.getContentPane().add(registerButton, BorderLayout.SOUTH);
-        
-        loginFrame.pack();
-        loginFrame.setVisible(true);// 프로그램 시작과 함께 로그인 창 표시
-        
-        //로그인 버튼 리스너
-        loginButton.addActionListener(new ActionListener(){
-            public void actionPerformed(ActionEvent e) {
-                String id = loginIdField.getText();
-                String pw = new String(loginPwField.getPassword());
-                 
-                //서버로 LOGIN 명령 전송
-                out.println("LOGIN:" + id + ":" + pw);
-            }
-        });
+    // ... (createLoginGUI, showRegisterDialog, run 메소드 등은 기존 코드 그대로 유지) ...
+    // (이 부분은 수정할 필요 없습니다. 다만 run() 내부의 Login Accepted 처리는 유지하세요)
 
-        //회원가입 리스너
+    // ⭐️ main 메소드 수정 (설정 파일 읽기)
+public static void main(String[] args) throws Exception {
+        
+        String serverIp = "127.0.0.1"; // 파일이 없을 때를 대비한 기본값
+        
+        // 1. 설정 파일 읽기 시도
+        try {
+            // 프로젝트 폴더 바로 아래에 있는 serverinfo.dat 파일을 찾음
+            java.io.File configFile = new java.io.File("serverinfo.dat");
+            
+            if (configFile.exists()) {
+                Scanner fileScanner = new Scanner(configFile);
+                if (fileScanner.hasNextLine()) {
+                    String readIp = fileScanner.nextLine().trim(); // 공백 제거
+                    if (!readIp.isEmpty()) {
+                        serverIp = readIp; // 파일에서 읽은 IP로 교체
+                        System.out.println("설정 파일(serverinfo.dat)에서 IP를 로드했습니다: " + serverIp);
+                    }
+                }
+                fileScanner.close();
+            } else {
+                System.out.println("설정 파일이 없습니다. 기본 IP(" + serverIp + ")를 사용합니다.");
+            }
+        } catch (Exception e) {
+            System.out.println("설정 파일 읽기 중 오류 발생: " + e.getMessage());
+        }
+
+        // 2. 결정된 IP로 클라이언트 실행
+        ChatClient client = new ChatClient(serverIp);
+        client.run();
+    }
+    
+    // ... (나머지 메소드 복사해서 넣으세요) ...
+    
+    private void createLoginGUI() {
+        // ... (기존에 작성하신 코드 그대로 사용) ...
+        // 주의: loginFrame.getContentPane().add(...) 사용하는 부분 유지
+        // ...
+        
+        // (편의를 위해 기존 코드 복붙하세요. 바뀐 건 main과 ChatClient 생성자 부분뿐입니다.)
+        
+    	loginFrame.setLayout(new FlowLayout());
+    	loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    	
+    	JPanel panel = new JPanel(new GridLayout(3,2));
+    	
+    	//아이디 입력
+    	panel.add(new JLabel("Username:"));
+    	panel.add(loginIdField);
+    	
+    	//비밀번호 입력
+    	panel.add(new JLabel("password:"));
+    	panel.add(loginPwField);
+    	
+    	//로그인 버튼
+    	JButton loginButton = new JButton("Login");
+    	panel.add(loginButton);
+    	panel.add(new JLabel(""));// 빈공간
+    	
+    	loginFrame.add(panel,BorderLayout.NORTH);
+    	loginFrame.add(registerButton, BorderLayout.SOUTH);//회원가입 버튼
+    	
+    	loginFrame.pack();
+    	loginFrame.setVisible(true);// 프로그램 시작과 함께 로그인 창 표시
+    	
+    	//로그인 버튼 리스너
+    	loginButton.addActionListener(new ActionListener(){
+    		public void actionPerformed(ActionEvent e) {
+    			String id = loginIdField.getText();
+    			String pw = new String(loginPwField.getPassword());
+    			 
+    			//서버로 LOGIN 명령 전송
+    			out.println("LOGIN:" + id + ":" + pw);
+    		}
+    	});
+    	//회원가입 리스터
         registerButton.addActionListener(new ActionListener(){
             public void actionPerformed(ActionEvent e) {
                 showRegisterDialog();
             }
         });
     }
-    
+
     private void showRegisterDialog() {
+         // ... (기존 작성하신 코드 그대로 사용) ...
+         // ... 
         JTextField idField = new JTextField(10);
         JPasswordField pwField = new JPasswordField(10);
         JTextField nameField = new JTextField(10);
@@ -156,22 +183,17 @@ public class ChatClient {
             String name = nameField.getText();
             String email = emailField.getText();
 
-            // 필드 유효성 검사 (간단하게)
             if (id.isEmpty() || pw.isEmpty() || name.isEmpty()) {
                 JOptionPane.showMessageDialog(loginFrame, "필수 항목을 모두 입력하세요.", "오류", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             
-            // 서버로 REGISTER 명령 전송
             out.println("REGISTER:" + id + ":" + pw + ":" + name + ":" + email);
         }
     }
-    
-    
-    
- 
 
     private void run() throws IOException {
+        // ... (기존 작성하신 코드 그대로 사용, Login Accepted 대소문자 주의) ...
         try {
         	Socket socket = new Socket(serverAddress, 60000);
             in = new Scanner(socket.getInputStream());
@@ -179,43 +201,31 @@ public class ChatClient {
 
             while (in.hasNextLine()) {
                 String line = in.nextLine();
-                //서버 시작 시 환영 메시지
                 if (line.startsWith("welcome")) {
                     continue;
                 } 
-                //로그인 성공 처리
                 else if (line.startsWith("Login Accepted")) {
                     String name = line.substring(14);
-                    //채팅 창으로 전환
                     loginFrame.setVisible(false);
                     chatframe.setTitle("Chatter - " + name);
                     textField.setEditable(true);
                     chatframe.setVisible(true);
                     messageArea.append("로그인 성공 채팅을 시작하세요 \n");
                 }
-                    
-                //로그인 실패처리
                  else if (line.startsWith("Login Failed")) {
                 	 String reason = line.substring(12);
                 	 JOptionPane.showMessageDialog(loginFrame, "로그인 실패: " + reason, "실패", JOptionPane.ERROR_MESSAGE);
-                	 
                  }
-             // 4. 회원가입 성공 처리
                  else if (line.startsWith("Register Accepted")) {
                      JOptionPane.showMessageDialog(loginFrame, "회원가입 성공! 로그인해주세요.", "성공", JOptionPane.INFORMATION_MESSAGE);
                  } 
-                 
-                 // 5. 회원가입 실패 처리
                  else if (line.startsWith("Register Failed")) {
                      String reason = line.substring(15);
                      JOptionPane.showMessageDialog(loginFrame, "회원가입 실패: " + reason, "실패", JOptionPane.ERROR_MESSAGE);
                  }
-
-                 // 6. 일반 채팅 메시지 처리 (기존과 동일)
                  else if (line.startsWith("MESSAGE")) {
                      messageArea.append(line.substring(8) + "\n");
                  }
-                
             }
         }finally {
             if (chatframe.isVisible()) {
@@ -227,14 +237,5 @@ public class ChatClient {
                 loginFrame.dispose();
             }
         }
-    }
-   
-                
-                
-
-    public static void main(String[] args) throws Exception {
-        
-        ChatClient client = new ChatClient("127.0.0.1");
-        client.run();
     }
 }
